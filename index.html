@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Печать этикетки с QR</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    /* =========================================================
+       НАСТРОЙКИ ЭТИКЕТКИ
+       Меняйте значения здесь — так проще двигать элементы.
+       ========================================================= */
+    :root {
+      /* Общие размеры этикетки */
+      --label-width: 100mm;
+      --label-min-height: 60mm;
+      --label-padding: 6mm;
+      --label-border-width: 2px;
+
+      /* Сетка этикетки */
+      --left-column-width: 32mm;
+      --column-gap: 5mm;
+      --row-gap: 5mm;
+
+      /* Цвета */
+      --border-color: #222;
+      --inner-border-color: #bbb;
+      --page-bg: #f5f5f5;
+      --muted-color: #666;
+
+      /* QR-блок */
+      --qr-min-height: 32mm;
+      --qr-padding: 2mm;
+      --qr-size: 120px;
+      --qr-align-x: center;   /* flex-start | center | flex-end */
+      --qr-align-y: center;   /* flex-start | center | flex-end */
+      --qr-offset-x: 0mm;
+      --qr-offset-y: 0mm;
+
+      /* Блок описания */
+      --desc-padding: 3mm;
+      --desc-font-size: 14px;
+      --desc-line-height: 1.3;
+      --desc-font-weight: 700;
+      --desc-align-x: flex-start;
+      --desc-align-y: flex-start;
+      --desc-text-align: left;
+      --desc-offset-x: 0mm;
+      --desc-offset-y: 0mm;
+
+      /* Нижний левый блок */
+      --bottom-left-padding-top: 3mm;
+      --bottom-left-font-size: 13px;
+      --bottom-left-font-weight: 700;
+      --bottom-left-text-align: left;
+      --bottom-left-offset-x: 0mm;
+      --bottom-left-offset-y: 0mm;
+
+      /* Нижний правый блок */
+      --bottom-right-padding-top: 3mm;
+      --bottom-right-font-size: 13px;
+      --bottom-right-font-weight: 700;
+      --bottom-right-text-align: right;
+      --bottom-right-offset-x: 0mm;
+      --bottom-right-offset-y: 0mm;
+
+      /* Верхняя граница нижних блоков */
+      --bottom-border-width: 1px;
+
+      /* Печать */
+      --page-margin: 8mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--page-bg);
+      color: #111;
+    }
+
+    .app {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: 28px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: #333;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .print-btn {
+      background: #111;
+      color: #fff;
+    }
+
+    .clear-btn {
+      background: #e9e9e9;
+      color: #111;
+    }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--muted-color);
+      line-height: 1.5;
+    }
+
+    .settings-note {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #f3f3f3;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .settings-note code {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .label-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    .label {
+      width: var(--label-width);
+      min-height: var(--label-min-height);
+      background: #fff;
+      border: var(--label-border-width) solid var(--border-color);
+      padding: var(--label-padding);
+      display: grid;
+      grid-template-columns: var(--left-column-width) 1fr;
+      grid-template-rows: 1fr auto;
+      column-gap: var(--column-gap);
+      row-gap: var(--row-gap);
+    }
+
+    .qr-box {
+      grid-column: 1;
+      grid-row: 1;
+      border: 1px solid var(--inner-border-color);
+      min-height: var(--qr-min-height);
+      padding: var(--qr-padding);
+      display: flex;
+      align-items: var(--qr-align-y);
+      justify-content: var(--qr-align-x);
+      overflow: hidden;
+      transform: translate(var(--qr-offset-x), var(--qr-offset-y));
+    }
+
+    .qr-box img,
+    .qr-box canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .desc-box {
+      grid-column: 2;
+      grid-row: 1;
+      border: 1px solid var(--inner-border-color);
+      padding: var(--desc-padding);
+      display: flex;
+      align-items: var(--desc-align-y);
+      justify-content: var(--desc-align-x);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: var(--desc-font-size);
+      line-height: var(--desc-line-height);
+      font-weight: var(--desc-font-weight);
+      text-align: var(--desc-text-align);
+      transform: translate(var(--desc-offset-x), var(--desc-offset-y));
+    }
+
+    .bottom-left,
+    .bottom-right {
+      border-top: var(--bottom-border-width) solid var(--inner-border-color);
+      text-transform: uppercase;
+    }
+
+    .bottom-left {
+      grid-column: 1;
+      grid-row: 2;
+      padding-top: var(--bottom-left-padding-top);
+      font-size: var(--bottom-left-font-size);
+      font-weight: var(--bottom-left-font-weight);
+      text-align: var(--bottom-left-text-align);
+      transform: translate(var(--bottom-left-offset-x), var(--bottom-left-offset-y));
+    }
+
+    .bottom-right {
+      grid-column: 2;
+      grid-row: 2;
+      padding-top: var(--bottom-right-padding-top);
+      font-size: var(--bottom-right-font-size);
+      font-weight: var(--bottom-right-font-weight);
+      text-align: var(--bottom-right-text-align);
+      transform: translate(var(--bottom-right-offset-x), var(--bottom-right-offset-y));
+    }
+
+    .placeholder {
+      color: #999;
+      font-size: 13px;
+      text-align: center;
+      padding: 8px;
+    }
+
+    .site-credit {
+      position: fixed;
+      right: 16px;
+      bottom: 12px;
+      font-size: 11px;
+      color: #666;
+      text-align: right;
+      z-index: 10;
+      user-select: none;
+    }
+
+    @page {
+      size: auto;
+      margin: var(--page-margin);
+    }
+
+    @media print {
+      .site-credit {
+        display: none;
+      }
+
+      body {
+        background: #fff;
+        padding: 0;
+      }
+
+      .panel,
+      h1 {
+        display: none !important;
+      }
+
+      .label-wrap {
+        display: block;
+      }
+
+      .label {
+        margin: 0;
+        box-shadow: none;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Этикетка с QR-кодом</h1>
+
+    <div class="panel">
+      <div class="form-group">
+        <label for="linkInput">Ссылка</label>
+        <input id="linkInput" type="text" placeholder="Вставьте ссылку" />
+      </div>
+
+      <div class="form-group">
+        <label for="descInput">Описание</label>
+        <textarea id="descInput" placeholder="Введите описание"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="print-btn" id="printBtn">Печать</button>
+        <button class="clear-btn" id="clearBtn" type="button">Очистить</button>
+      </div>
+
+      <div class="hint">
+        QR-код обновляется автоматически при изменении ссылки. После печати поля очищаются.
+      </div>
+
+      <div class="settings-note">
+        Чтобы быстро менять расположение элементов, редактируйте блок <code>:root</code> вверху файла.<br>
+        Самые полезные параметры: <code>--qr-offset-x</code>, <code>--qr-offset-y</code>,
+        <code>--desc-offset-x</code>, <code>--desc-offset-y</code>,
+        <code>--bottom-left-offset-x</code>, <code>--bottom-left-offset-y</code>,
+        <code>--bottom-right-offset-x</code>, <code>--bottom-right-offset-y</code>.
+      </div>
+    </div>
+
+    <div class="label-wrap">
+      <div class="label" id="printArea">
+        <div class="qr-box">
+          <div id="qrcode" class="placeholder">QR появится здесь</div>
+        </div>
+        <div class="desc-box" id="descPreview">Описание появится здесь</div>
+        <div class="bottom-left">Отпуск</div>
+        <div class="bottom-right">Отпуск</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const linkInput = document.getElementById('linkInput');
+    const descInput = document.getElementById('descInput');
+    const descPreview = document.getElementById('descPreview');
+    const qrcodeContainer = document.getElementById('qrcode');
+    const printBtn = document.getElementById('printBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    let qr;
+    let clearAfterPrint = false;
+
+    function initQr() {
+      qrcodeContainer.innerHTML = '';
+      qr = new QRCode(qrcodeContainer, {
+        text: ' ',
+        width: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--qr-size')) || 120,
+        height: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--qr-size')) || 120,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function updateQr() {
+      const value = linkInput.value.trim();
+      const qrSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--qr-size')) || 120;
+
+      qrcodeContainer.innerHTML = '';
+
+      if (!value) {
+        qrcodeContainer.innerHTML = '<div class="placeholder">QR появится здесь</div>';
+        return;
+      }
+
+      qr = new QRCode(qrcodeContainer, {
+        text: value,
+        width: qrSize,
+        height: qrSize,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function updateDescription() {
+      const value = descInput.value.trim();
+      descPreview.textContent = value || 'Описание появится здесь';
+    }
+
+    function clearFields() {
+      linkInput.value = '';
+      descInput.value = '';
+      updateQr();
+      updateDescription();
+      clearAfterPrint = false;
+    }
+
+    linkInput.addEventListener('input', updateQr);
+    descInput.addEventListener('input', updateDescription);
+    clearBtn.addEventListener('click', clearFields);
+
+    printBtn.addEventListener('click', () => {
+      updateQr();
+      updateDescription();
+      clearAfterPrint = true;
+      window.print();
+    });
+
+    window.addEventListener('afterprint', () => {
+      if (clearAfterPrint) {
+        clearFields();
+      }
+    });
+
+    updateDescription();
+    initQr();
+  </script>
+  <div class="site-credit">made by @noxeu</div>
+</body>
+</html>
